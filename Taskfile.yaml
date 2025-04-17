@@ -1,0 +1,40 @@
+version: '3'
+
+dotenv: ['.env']
+
+tasks:
+  build:
+    desc: Dockerイメージのビルド
+    cmds:
+      - docker compose build
+
+  up:
+    desc: コンテナを起動
+    cmds:
+      - docker compose up -d
+
+  down:
+    desc: コンテナの停止と削除
+    cmds:
+      - docker compose down
+
+  write_uid_onto_env:
+    desc: ホストマシンのUIDとUSERNAMEを.envに書き込む
+    cmds:
+      - |
+        TEMP_FILE=$(mktemp)
+        grep -v "^USER_UID=" .env | grep -v "^USERNAME=" > $$TEMP_FILE
+        echo "USER_UID=$(id -u $(whoami))" >> $$TEMP_FILE
+        echo "USERNAME=$USER" >> $$TEMP_FILE
+        mv $$TEMP_FILE .env
+
+  shell:
+    desc: UID書き込み -> build -> up -> コンテナに入る
+    cmds:
+      - task: write_uid_onto_env
+      - task: build
+      - task: up
+      - docker exec -it "{{.container_name}}" /bin/bash
+    vars:
+      container_name:
+        sh: 'echo ${CONTAINER_NAME}'
