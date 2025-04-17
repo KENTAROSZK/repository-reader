@@ -14,8 +14,5 @@ services:
         source: ./src
         target: /home/${USERNAME}
     working_dir: /home/${USERNAME}
-    ports:
-      - "6274:6274"  # MCPサーバのポートをホストに公開
-      - "6277:6277"  # MCPサーバのポートをホストに公開
     tty: true 
     restart: always # コンテナが停止した場合に常に再起動する
