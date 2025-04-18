@@ -6,17 +6,17 @@ tasks:
   build:
     desc: Dockerイメージのビルド
     cmds:
-      - docker compose build
+      - docker compose -f ./context/cpu/docker-compose.yaml build
 
   up:
     desc: コンテナを起動
     cmds:
-      - docker compose up -d
+      - docker compose -f ./context/cpu/docker-compose.yaml up -d
 
   down:
     desc: コンテナの停止と削除
     cmds:
-      - docker compose down
+      - docker compose -f ./context/cpu/docker-compose.yaml down
 
   write_uid_onto_env:
     desc: ホストマシンのUIDとUSERNAMEを.envに書き込む

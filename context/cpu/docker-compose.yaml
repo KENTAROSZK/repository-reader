@@ -1,0 +1,19 @@
+services:
+  python-dev: # サービス名 (任意)
+    build:
+      context: ../../context/
+      dockerfile: Dockerfile
+      args:
+        POETRY_VERSION: ${POETRY_VERSION}
+        POETRY_HOME: ${POETRY_HOME}
+        USER_UID: ${USER_UID}
+        USERNAME: ${USERNAME}
+        PROJECT_NAME: ${PROJECT_NAME}
+    container_name: ${CONTAINER_NAME}
+    volumes:
+      - type: bind
+        source: ./
+        target: /home/${USERNAME}/${PROJECT_NAME}
+    working_dir: /home/${USERNAME}/${PROJECT_NAME}
+    tty: true 
+    restart: always # コンテナが停止した場合に常に再起動する
