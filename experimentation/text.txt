@@ -1,0 +1,623 @@
+--- ディレクトリ構造 ---
+experimentationFalse└── temp_lister_test
+False└── [予期せぬエラー: unsupported operand type(s) for +: 'bool' and 'str' (temp_lister_test)]
+False└── config.py
+False└── directory_lister.py
+False└── entrypoint.py
+False└── pyproject.toml
+True└── settings.yml
+
+
+--- ファイル内容 ---
+
+
+/config.py:
+--------------------------------------------------------------------------------
+ 1 | import yaml
+ 2 | from pydantic import BaseModel
+ 3 | from typing import List
+ 4 | from pathlib import Path
+ 5 | 
+ 6 | class IgnoreExtensionsConfig(BaseModel):
+ 7 |     images: List[str] | None
+ 8 |     videos: List[str] | None
+ 9 |     compressed: List[str] | None
+10 |     binaries: List[str] | None
+11 |     documents: List[str] | None
+12 |     others: List[str] | None
+13 | 
+14 |     def all_extensions(self) -> List[str]:
+15 |         """全ての拡張子を取得する"""
+16 |         all_exts = []
+17 |         for attr in self.__dict__.values():
+18 |             if isinstance(attr, list):
+19 |                 all_exts.extend(attr)
+20 |         return all_exts
+21 | 
+22 | 
+23 | 
+24 | class Config(BaseModel):
+25 |     ignore_dirs: List[str] | None
+26 |     ignore_files: List[str] | None
+27 |     ignore_extensions: IgnoreExtensionsConfig | None
+28 | 
+29 | 
+30 | def get_config(settings_yaml_path: Path)->Config:
+31 |     with open(settings_yaml_path, 'rb') as f:
+32 |         yml = yaml.safe_load(f)
+33 | 
+34 |     return Config.model_validate(yml)
+35 | 
+36 | 
+37 | def main() -> None:
+38 |     settings_yaml_path = Path('./settings.yml')
+39 |     config = get_config(settings_yaml_path)
+40 | 
+41 |     print()
+42 |     print(f"{getattr(config, 'ignore_dirs')=}")
+43 |     print()
+44 |     print(f"{getattr(config, 'ignore_extensions')=}")
+45 |     print()
+46 |     print(f"{getattr(config.ignore_extensions, 'images')=}")
+47 |     print()
+48 |     print(config.ignore_extensions.all_extensions())
+49 |     print()
+50 | 
+51 | 
+52 | if __name__ == "__main__":
+53 |     main()
+--------------------------------------------------------------------------------
+
+
+/directory_lister.py:
+--------------------------------------------------------------------------------
+  1 | from pathlib import Path
+  2 | from typing import List
+  3 | from config import get_config, Config
+  4 | 
+  5 | import os
+  6 | import sys
+  7 | 
+  8 | 
+  9 | 
+ 10 | class DirectoryLister:
+ 11 |     def __init__(
+ 12 |             self,
+ 13 |             directory_path: Path,
+ 14 |             output_file: Path,
+ 15 |             config: Config
+ 16 |     ):
+ 17 |         self.root_path = directory_path.resolve() # 絶対パスに変換
+ 18 |         self.output_file = output_file
+ 19 |         self.config = config
+ 20 | 
+ 21 |         if not self.root_path.is_dir():
+ 22 |             raise ValueError(f"{self.root_path} is not a directory.")
+ 23 | 
+ 24 |         self.ignore_dirs = getattr(self.config, "ignore_dirs")
+ 25 |         self.ignore_files = getattr(self.config, "ignore_files")
+ 26 |         self.ignore_extensions = getattr(self.config.ignore_extensions, "all_extensions")()
+ 27 |         self.ignore_files.append(str(output_file)) # 過去に出力したテキストを無視する必要がある
+ 28 |         print(self.ignore_files)
+ 29 | 
+ 30 | 
+ 31 |         # print(str(output_file))
+ 32 | 
+ 33 |     def _should_ignore(self, path: Path) -> bool:
+ 34 |         """指定されたパスが無視対象かどうかを判定する"""
+ 35 |         if any(part in self.ignore_dirs for part in path.parts): return True # ディレクトリ名で無視
+ 36 |         if path.name in self.ignore_files: return True # ファイル名で無視
+ 37 |         if path.suffix.lower() in self.ignore_extensions: return True # 拡張子で無視
+ 38 | 
+ 39 |         return False
+ 40 | 
+ 41 |     def _get_sorted_items(self, directory: Path) -> List[Path]:
+ 42 |         """指定されたディレクトリ内のアイテムを無視対象を除外してソートする. 内部メソッド"""
+ 43 |         # TODO: パーミッションエラーやディレクトリを見つけられなかった時のエラーハンドリングを追加する
+ 44 | 
+ 45 |         # ディレクトリ内のアイテムを取得し、無視対象を除外してソート
+ 46 |         filtered_items = [item for item in directory.iterdir() if not self._should_ignore(item)]
+ 47 |         items = sorted(
+ 48 |             filtered_items,
+ 49 |             key=lambda x: (x.is_file(), x.name.lower()) # ディレクトリを先に、次にファイル名でソート
+ 50 |         )
+ 51 |         return items
+ 52 | 
+ 53 |     def _generate_tree_recursive(
+ 54 |             self,
+ 55 |             current_path: Path,
+ 56 |             prefix: str = "",
+ 57 |             is_last: bool=True
+ 58 |     ) -> str:
+ 59 |         """ディレクトリ構造をtree形式で再帰的に生成する（内部メソッド）"""
+ 60 |         structure = ""
+ 61 |         connector = '└── ' if is_last else '├── '
+ 62 | 
+ 63 |         try:
+ 64 |             structure += f"{prefix}{connector}{current_path.name}\n"
+ 65 | 
+ 66 |             # ディレクトリの場合は再起的に呼び出す
+ 67 |             if current_path.is_dir():
+ 68 |                 new_prefix = prefix + ('    ' if is_last else '│   ')
+ 69 |                 # サブアイテムを取得する
+ 70 |                 items = self._get_sorted_items(current_path)
+ 71 |                 item_count = len(items)
+ 72 | 
+ 73 |                 for i, item in enumerate(items):
+ 74 |                     is_last_item= (i == item_count - 1)
+ 75 |                     # 再帰的に呼び出す
+ 76 |                     structure += self._generate_tree_recursive(item, new_prefix, is_last_item)
+ 77 | 
+ 78 |         except OSError as e:
+ 79 |             structure += f"{prefix}{connector}[エラー: {e.strerror} ({current_path.name})]\n"
+ 80 |         except Exception as e:
+ 81 |             structure += f"{prefix}{connector}[予期せぬエラー: {e} ({current_path.name})]\n"
+ 82 | 
+ 83 |         return structure
+ 84 | 
+ 85 |     def generate_tree_structure(self)-> str:
+ 86 |         """ルートディレクトリから始まる全体のディレクt理構造の文字列を生成する"""
+ 87 |         structure = f"{self.root_path.name}"
+ 88 | 
+ 89 |         # ルートディレクトリのアイテムを取得
+ 90 |         items = self._get_sorted_items(self.root_path)
+ 91 | 
+ 92 |         # 各アイテムに対して再起的に処理をする
+ 93 |         num_items = len(items)
+ 94 |         for i, item in enumerate(items):
+ 95 |             is_last_item = (i == num_items - 1)
+ 96 |             structure += self._generate_tree_recursive(item, is_last_item)
+ 97 | 
+ 98 |         return structure
+ 99 | 
+100 |     def _format_file_content(self, file_path: Path) -> str:
+101 |         """単一のファイルのパスと内容を読み込み、整形して文字列で返す。 内部メソッド"""
+102 | 
+103 |         content_str = "" # 結果の文字列
+104 |         separator = "-" * 80 + "\n" # 区切り線の定義
+105 | 
+106 |         # 相対パスの取得
+107 |         relative_path = file_path.relative_to(self.root_path) # 相対パスを取得
+108 |         content_str += f"\n\n/{relative_path}:\n" # 相対パスを表示
+109 | 
+110 |         content_str += separator
+111 | 
+112 |         # ファイルの内容を読み込む
+113 |         try:
+114 |             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
+115 |                 lines = f.readlines() # ファイルの全行をリストとして読み込む
+116 | 
+117 |             if not lines: # 空ファイルの場合
+118 |                 content_str += " [空ファイル]\n"
+119 |             else:
+120 |                 max_digits = len(str(len(lines))) # 行番号の桁数を計算。仮に20行であればmax_digitsは2になる。
+121 |                 for i, line in enumerate(lines):
+122 |                     line_num_str = str(i+1).rjust(max_digits) # 行番号を右寄せで整形
+123 |                     content_str += f"{line_num_str} | {line.rstrip()}\n" # 行末の改行文字（rstrip()）を除去して、整形して追加
+124 |         except PermissionError:
+125 |             content_str += f" [エラー] ファイル '{file_path.name}' へのアクセス権がありません。\n"
+126 |         except OSError as e:
+127 |             content_str += f" [エラー] ファイル '{file_path.name}' 読み込み中にOSエラーが発生しました: {e.strerror}\n"
+128 |         except Exception as e:
+129 |             content_str += f" [エラー] ファイル '{file_path.name}' 読み込み中に予期せぬエラーが発生しました: {e}\n"
+130 | 
+131 |         content_str += separator # 最後に区切り線を追加
+132 |         return content_str
+133 | 
+134 |     def generate_file_contents(self)->str:
+135 |         """全ファイルのパスと内容を行番号付きで取得する"""
+136 |         contents=""
+137 | 
+138 |         files = [os.path.join(dirpath, f) for dirpath, _, filenames in os.walk(self.root_path) for f in filenames]
+139 |         files = [item for item in files if not self._should_ignore(Path(item))] # 無視対象を除外
+140 |         files = sorted(files, key=lambda x: (os.path.isfile(x), x.lower())) # ディレクトリを先に、次にファイル名でソート
+141 |         files = [Path(item) for item in files] # Pathオブジェクトに変換
+142 | 
+143 |         for file in files:
+144 |             contents += self._format_file_content(file)
+145 | 
+146 |         return contents
+147 | 
+148 |     def write_to_file(self, tree_structure: str, file_contents: str) -> None:
+149 |         """
+150 |         生成したディレクトリ構造とファイル内容を指定されたファイルに書き込む。
+151 | 
+152 |         Args:
+153 |             tree_structure (str): generate_tree_structureで生成された文字列。
+154 |             file_contents (str): generate_file_contentsで生成された文字列。
+155 |         """
+156 |         print(f"ファイル '{self.output_file}' に書き込み中...")
+157 |         try:
+158 |             # --- 出力ファイルの親ディレクトリが存在しない場合に作成 ---
+159 |             # self.output_path.parent は出力ファイルの親ディレクトリのPathオブジェクト
+160 |             # parents=True: 中間ディレクトリもまとめて作成 (例: /a/b/c.txt で a, b がなくても作る)
+161 |             # exist_ok=True: ディレクトリが既に存在していてもエラーにしない
+162 |             self.output_file.parent.mkdir(parents=True, exist_ok=True)
+163 | 
+164 |             # --- ファイルへの書き込み ---
+165 |             # 'w'モード: 書き込みモード。ファイルが存在すれば上書き、なければ新規作成。
+166 |             # encoding='utf-8': UTF-8エンコーディングで書き込む。
+167 |             with open(self.output_file, 'w', encoding='utf-8') as f:
+168 |                 f.write("--- ディレクトリ構造 ---\n")
+169 |                 f.write(tree_structure)
+170 |                 f.write("\n\n--- ファイル内容 ---\n") # 構造と内容の間に区切りを入れる
+171 |                 f.write(file_contents)
+172 | 
+173 |             # 成功メッセージ (絶対パスで表示すると分かりやすい)
+174 |             print(f"ディレクトリリストが '{self.output_file.resolve()}' に出力されました。")
+175 | 
+176 |         except IOError as e:
+177 |             # ファイル書き込みに関するエラー (ディスクフル、アクセス権など)
+178 |             print(f"エラー: ファイル '{self.output_file}' に書き込めませんでした: {e}", file=sys.stderr)
+179 |         except Exception as e:
+180 |             # その他の予期せぬエラー
+181 |             print(f"予期せぬエラーが発生しました: {e}", file=sys.stderr)
+182 |     def run(self) -> None:
+183 |         """
+184 |         ディレクトリリスト化の全処理を実行する。
+185 |         """
+186 |         print(f"処理を開始します: {self.root_path}")
+187 |         try:
+188 |             # 1. ディレクトリ構造を生成
+189 |             tree_structure = self.generate_tree_structure()
+190 | 
+191 |             # 2. ファイル内容を生成
+192 |             file_contents = self.generate_file_contents()
+193 | 
+194 |             # 3. ファイルに書き込み
+195 |             self.write_to_file(tree_structure, file_contents)
+196 | 
+197 |             print("処理が正常に完了しました。")
+198 | 
+199 |         except Exception as e:
+200 |             # run の中で予期せぬエラーが起きた場合 (各メソッド内で捕捉されなかった場合など)
+201 |             print(f"\n処理中にエラーが発生しました: {e}", file=sys.stderr)
+202 |             # ここでプログラムを終了させるか、呼び出し元にエラーを伝えるかは設計による
+203 |             # 今回は呼び出し元 (mainブロック) で最終的なエラーハンドリングを行う想定
+204 |             raise # 捕捉したエラーを再度送出する
+205 | 
+206 | 
+207 | 
+208 | 
+209 | 
+210 | 
+211 | def test_should_ignore(lister: DirectoryLister) -> None:
+212 |     # テスト用のPathオブジェクトを作成 (Windows/Mac/Linuxで互換性のある書き方)
+213 |     test_path_git = Path(".git") / "config" # 相対パスで作成
+214 |     test_path_pycache = Path("my_module") / "__pycache__" / "cache_file.pyc"
+215 |     test_path_dsstore = Path("images") / ".DS_Store"
+216 |     test_path_log = Path("logs") / "app.log"
+217 |     test_path_normal_file = Path("src") / "main.py"
+218 |     test_path_normal_dir = Path("data")
+219 |     test_path_root_ignored_file = Path(".env")
+220 |     test_path_image = Path("assets") / "logo.png"
+221 | 
+222 |     print("-" * 20)
+223 |     print("無視判定テスト:")
+224 |     print(f"'{test_path_git}' は無視対象? -> {lister._should_ignore(test_path_git)}") # Trueのはず
+225 |     print(f"'{test_path_pycache}' は無視対象? -> {lister._should_ignore(test_path_pycache)}") # Trueのはず
+226 |     print(f"'{test_path_dsstore}' は無視対象? -> {lister._should_ignore(test_path_dsstore)}") # Trueのはず
+227 |     print(f"'{test_path_log}' は無視対象? -> {lister._should_ignore(test_path_log)}") # Trueのはず
+228 |     print(f"'{test_path_normal_file}' は無視対象? -> {lister._should_ignore(test_path_normal_file)}") # Falseのはず
+229 |     print(f"'{test_path_normal_dir}' は無視対象? -> {lister._should_ignore(test_path_normal_dir)}") # Falseのはず
+230 |     print(f"'{test_path_root_ignored_file}' は無視対象? -> {lister._should_ignore(test_path_root_ignored_file)}") # Trueのはず
+231 |     print(f"'{test_path_image}' は無視対象? -> {lister._should_ignore(test_path_image)}") # Trueのはず
+232 |     print("-" * 20)
+233 | 
+234 | 
+235 | def test_get_sorted_items() -> None:
+236 |     # テスト用のディレクトリとファイルを作成
+237 |     test_base_dir = Path("./temp_lister_test")
+238 |     test_base_dir.mkdir(exist_ok=True)
+239 |     (test_base_dir / "dir_a").mkdir(exist_ok=True)
+240 |     (test_base_dir / "file_z.txt").touch(exist_ok=True)
+241 |     (test_base_dir / "File_B.py").touch(exist_ok=True)
+242 |     (test_base_dir / "dir_c").mkdir(exist_ok=True)
+243 |     (test_base_dir / ".env").touch(exist_ok=True) # 無視されるファイル
+244 |     (test_base_dir / "image.png").touch(exist_ok=True) # 無視される拡張子
+245 |     (test_base_dir / ".git").mkdir(exist_ok=True) # 無視されるディレクトリ
+246 | 
+247 |     # Listerインスタンスを作成 (テストディレクトリを対象)
+248 |     lister = DirectoryLister(
+249 |         Path(test_base_dir),
+250 |         Path("./output.txt"),
+251 |         config=get_config(Path('./settings.yml'))
+252 |     )
+253 | 
+254 |     print(f"\n'{test_base_dir}' 内のソート済みアイテム:")
+255 |     sorted_items = lister._get_sorted_items(test_base_dir)
+256 |     if not sorted_items:
+257 |         print("  (アイテムが見つからないか、アクセスエラー)")
+258 |     for item in sorted_items:
+259 |         item_type = "Dir " if item.is_dir() else "File"
+260 |         print(f"  {item_type}: {item.name}")
+261 | 
+262 |     # 期待される出力順序の確認 (手動)
+263 |     # dir_a, dir_c, File_B.py, file_z.txt の順になるはず
+264 | 
+265 | 
+266 | if __name__ == "__main__":
+267 |     lister = DirectoryLister(
+268 |         directory_path=Path('./'),
+269 |         output_file=Path('text.txt'),
+270 |         config=get_config(Path('./settings.yml'))
+271 |     )
+272 | 
+273 | 
+274 |     a = lister._get_sorted_items(lister.root_path)
+275 | 
+276 |     lister._generate_tree_recursive(lister.root_path)
+277 |     a = lister.generate_file_contents()
+278 |     print(a)
+279 | 
+280 |     lister.run()
+281 | 
+282 | 
+283 |     # for item in a:
+284 |     #     print(item)
+285 | 
+286 | 
+287 |     # test_should_ignore(lister)
+288 |     # test_get_sorted_items()
+--------------------------------------------------------------------------------
+
+
+/entrypoint.py:
+--------------------------------------------------------------------------------
+  1 | from pathlib import Path
+  2 | 
+  3 | from config import get_config, Config
+  4 | 
+  5 | # 無視するディレクトリやファイル、拡張子の設定を取得
+  6 | settings_yaml_path = Path('./settings.yml')
+  7 | CONFIG = get_config(settings_yaml_path)
+  8 | 
+  9 | 
+ 10 | def should_ignore(path: Path, config: Config=CONFIG) -> bool:
+ 11 |     """指定されたパスが無視対象かどうかを判定する"""
+ 12 |     # ディレクトリ名で無視
+ 13 | 
+ 14 |     if any(part in getattr(config, "ignore_dirs") for part in path.parts):
+ 15 |         return True
+ 16 |     # ファイル名で無視
+ 17 |     if path.name in getattr(config, "ignore_files"):
+ 18 |         return True
+ 19 |     # 拡張子で無視
+ 20 |     if path.suffix.lower() in config.ignore_extensions.all_extensions():
+ 21 |         return True
+ 22 |     return False
+ 23 | 
+ 24 | 
+ 25 | def generate_tree(start_path: Path, prefix: str = '', is_last: bool = True) -> str:
+ 26 |     """ディレクトリ構造をtree形式で生成する再帰関数"""
+ 27 |     structure = ""
+ 28 |     # 無視対象のディレクトリ/ファイルは処理しない
+ 29 |     if should_ignore(start_path):
+ 30 |         return ""
+ 31 | 
+ 32 |     connector = '└── ' if is_last else '├── '
+ 33 |     structure += f"{prefix}{connector}{start_path.name}\n"
+ 34 | 
+ 35 |     if start_path.is_dir():
+ 36 |         new_prefix = prefix + ('    ' if is_last else '│   ')
+ 37 |         # ディレクトリ内のアイテムを取得し、無視対象を除外してソート
+ 38 |         items = sorted(
+ 39 |             [item for item in start_path.iterdir() if not should_ignore(item)],
+ 40 |             key=lambda x: (x.is_file(), x.name.lower()) # ディレクトリを先に、次にファイル名でソート
+ 41 |         )
+ 42 |         for i, item in enumerate(items):
+ 43 |             is_last_item = (i == len(items) - 1)
+ 44 |             structure += generate_tree(item, new_prefix, is_last_item)
+ 45 | 
+ 46 |     return structure
+ 47 | 
+ 48 | 
+ 49 | def get_file_contents(root_path: Path) -> str:
+ 50 |     """指定されたディレクトリ以下の全ファイルのパスと内容を行番号付きで取得する"""
+ 51 |     contents = ""
+ 52 |     separator = "-" * 80 + "\n"
+ 53 |     processed_files_count = 0
+ 54 | 
+ 55 |     # rglob で再帰的にファイルを取得し、パスでソート
+ 56 |     all_paths = sorted([p for p in root_path.rglob('*')])
+ 57 | 
+ 58 |     for item in all_paths:
+ 59 |         # 無視対象をスキップ
+ 60 |         if should_ignore(item):
+ 61 |             continue
+ 62 | 
+ 63 |         if item.is_file():
+ 64 |             processed_files_count += 1
+ 65 |             # ルートパスからの相対パスを取得し、先頭に / を追加
+ 66 |             try:
+ 67 |                 relative_path = item.relative_to(root_path)
+ 68 |                 contents += f"\n/{relative_path}:\n"
+ 69 |             except ValueError:
+ 70 |                 # root_path自身がファイルの場合など
+ 71 |                 contents += f"\n/{item.name}:\n"
+ 72 | 
+ 73 |             contents += separator
+ 74 |             try:
+ 75 |                 # さまざまなエンコーディングに対応し、エラーは無視
+ 76 |                 with open(item, 'r', encoding='utf-8', errors='ignore') as f:
+ 77 |                     lines = f.readlines()
+ 78 |                     if not lines:
+ 79 |                         contents += " [空ファイル]\n"
+ 80 |                     else:
+ 81 |                         # 行番号の桁数を計算
+ 82 |                         max_digits = len(str(len(lines)))
+ 83 |                         for i, line in enumerate(lines):
+ 84 |                             # 行番号を右寄せでフォーマット
+ 85 |                             line_num_str = str(i + 1).rjust(max_digits)
+ 86 |                             # 末尾の改行は維持しつつ、余分な空白は削除
+ 87 |                             contents += f"{line_num_str} | {line.rstrip()}\n"
+ 88 |             except Exception as e:
+ 89 |                 contents += f" [エラー] ファイル読み込み中にエラーが発生しました: {e}\n"
+ 90 |             contents += separator
+ 91 | 
+ 92 |     if processed_files_count == 0:
+ 93 |         contents += "\n[指定されたディレクトリ内に処理対象ファイルが見つかりませんでした]\n"
+ 94 | 
+ 95 |     return contents
+ 96 | 
+ 97 | def generate_directory_listing(directory_path: str, output_file: str) -> None:
+ 98 |     """ディレクトリ構造とファイル内容を指定ファイルに出力する"""
+ 99 |     start_path = Path(directory_path).resolve() # 絶対パスに変換
+100 |     if not start_path.is_dir():
+101 |         print(f"エラー: '{directory_path}' は有効なディレクトリではありません。")
+102 |         return
+103 | 
+104 |     print(f"処理を開始します: {start_path}")
+105 |     print(f"出力ファイル: {output_file}")
+106 | 
+107 |     # ディレクトリ構造の取得 (tree形式)
+108 |     print("ディレクトリ構造を生成中...")
+109 |     # ルートディレクトリ自体も表示するために少し調整
+110 |     structure = f"{start_path.name}\n"
+111 |     items = sorted(
+112 |         [item for item in start_path.iterdir() if not should_ignore(item)],
+113 |          key=lambda x: (x.is_file(), x.name.lower())
+114 |     )
+115 |     for i, item in enumerate(items):
+116 |         is_last_item = (i == len(items) - 1)
+117 |         structure += generate_tree(item, '', is_last_item)
+118 |     print("ディレクトリ構造の生成完了。")
+119 | 
+120 |     # ファイル内容の取得
+121 |     print("ファイル内容を取得中...")
+122 |     file_contents_data = get_file_contents(start_path)
+123 |     print("ファイル内容の取得完了。")
+124 | 
+125 |     # ファイルへの書き込み
+126 |     print("ファイルに書き込み中...")
+127 |     try:
+128 |         # 出力ファイルのディレクトリが存在しない場合は作成
+129 |         output_path = Path(output_file)
+130 |         output_path.parent.mkdir(parents=True, exist_ok=True)
+131 | 
+132 |         with open(output_path, 'w', encoding='utf-8') as f:
+133 |             f.write(structure)
+134 |             f.write("\n\n") # treeと内容の間に空行を入れる
+135 |             f.write(file_contents_data)
+136 |         print(f"ディレクトリリストが '{output_path.resolve()}' に出力されました。")
+137 |     except IOError as e:
+138 |         print(f"エラー: ファイル '{output_file}' に書き込めませんでした: {e}")
+139 |     except Exception as e:
+140 |         print(f"予期せぬエラーが発生しました: {e}")
+141 | 
+142 | 
+143 | def main() -> None:
+144 |     directory_path = "../"
+145 |     start_path = Path(directory_path).resolve() # 絶対パスに変換
+146 |     start_path = Path(directory_path).resolve().resolve() # 絶対パスに変換
+147 | 
+148 |     generate_directory_listing(directory_path, "./text.txt")
+149 | 
+150 | 
+151 | # --- コマンドライン引数の処理とメイン実行部分 ---
+152 | if __name__ == "__main__":
+153 |     main()
+--------------------------------------------------------------------------------
+
+
+/pyproject.toml:
+--------------------------------------------------------------------------------
+ 1 | [project]
+ 2 | name = "repository-reader"
+ 3 | version = "0.1.0"
+ 4 | description = ""
+ 5 | authors = [
+ 6 |     {name = "Your Name",email = "you@example.com"}
+ 7 | ]
+ 8 | readme = "README.md"
+ 9 | requires-python = ">=3.11"
+10 | dependencies = [
+11 |     "pyyaml (>=6.0.2,<7.0.0)",
+12 |     "pydantic (>=2.11.3,<3.0.0)"
+13 | ]
+14 | 
+15 | 
+16 | [build-system]
+17 | requires = ["poetry-core>=2.0.0,<3.0.0"]
+18 | build-backend = "poetry.core.masonry.api"
+--------------------------------------------------------------------------------
+
+
+/settings.yml:
+--------------------------------------------------------------------------------
+ 1 | ignore_dirs:
+ 2 |   - ".git"
+ 3 |   - "__pycache__"
+ 4 |   - ".venv"
+ 5 |   - "node_modules"
+ 6 |   - ".vscode"
+ 7 |   - ".idea"
+ 8 |   - "build"
+ 9 |   - "dist"
+10 |   - "*.egg_info"
+11 |   - ".mypy_cache"
+12 | ignore_files:
+13 |   - ".DS_Store"
+14 |   - ".env"
+15 |   - "thumbs.db"
+16 | ignore_extensions:
+17 |   images:
+18 |     - '.png'
+19 |     - '.jpg'
+20 |     - '.jpeg'
+21 |     - '.gif'
+22 |     - '.bmp'
+23 |     - '.tiff'
+24 |     - '.webp'
+25 |     - '.svg'
+26 |     - '.ico'
+27 |   videos:
+28 |     - '.mp4'
+29 |     - '.mov'
+30 |     - '.avi'
+31 |     - '.wmv'
+32 |     - '.mp3'
+33 |     - '.wav'
+34 |     - '.ogg'
+35 |   compressed:
+36 |     - '.zip'
+37 |     - '.gz'
+38 |     - '.tar'
+39 |     - '.rar'
+40 |     - '.7z'
+41 |   binaries:
+42 |     - '.pyc'
+43 |     - '.pyo'
+44 |     - '.exe'
+45 |     - '.dll'
+46 |     - '.so'
+47 |     - '.o'
+48 |     - '.a'
+49 |     - '.lib'
+50 |   documents:
+51 |     - '.pdf'
+52 |     - '.doc'
+53 |     - '.docx'
+54 |     - '.xls'
+55 |     - '.xlsx'
+56 |     - '.ppt'
+57 |     - '.pptx'
+58 |   others:
+59 |     - '.lock'
+60 |     - '.log'
+61 |     - '.sqlite'
+62 |     - '.db'
+63 | 
+--------------------------------------------------------------------------------
+
+
+/temp_lister_test/File_B.py:
+--------------------------------------------------------------------------------
+ [空ファイル]
+--------------------------------------------------------------------------------
+
+
+/temp_lister_test/file_z.txt:
+--------------------------------------------------------------------------------
+ [空ファイル]
+--------------------------------------------------------------------------------

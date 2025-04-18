@@ -1,51 +1,26 @@
 from pathlib import Path
-import argparse
 
-# 無視するディレクトリ名、ファイル名、拡張子のセット
-# プロジェクトに合わせて適宜変更してください
-IGNORE_DIRS = {
-    '.git',
-    '__pycache__',
-    '.venv',            # Python仮想環境
-    'node_modules',     # Node.js パッケージ
-    '.vscode',          # Visual Studio Code 設定
-    '.idea',            # JetBrains IDE 設定
-    'build',            # ビルド成果物
-    'dist',             # 配布パッケージ
-    '*.egg-info',       # Python パッケージ情報
-}
-IGNORE_FILES = {
-    '.DS_Store',        # macOS システムファイル
-    'thumbs.db',        # Windows システムファイル
-    '.env',             # 環境変数ファイル (内容を表示したくない場合)
-}
-IGNORE_EXTENSIONS = {
-    # 画像ファイル
-    '.png', '.jpg', '.jpeg', '.gif', '.bmp', '.tiff', '.webp', '.svg', '.ico',
-    # 動画/音声ファイル
-    '.mp4', '.mov', '.avi', '.wmv', '.mp3', '.wav', '.ogg',
-    # 圧縮ファイル
-    '.zip', '.gz', '.tar', '.rar', '.7z',
-    # バイナリ/実行ファイル
-    '.pyc', '.pyo', '.exe', '.dll', '.so', '.o', '.a', '.lib',
-    # ドキュメント (内容表示が難しい場合)
-    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx',
-    # その他
-    '.lock', '.log', '.sqlite', '.db',
-}
+from config import get_config, Config
 
-def should_ignore(path: Path) -> bool:
+# 無視するディレクトリやファイル、拡張子の設定を取得
+settings_yaml_path = Path('./settings.yml')
+CONFIG = get_config(settings_yaml_path)
+
+
+def should_ignore(path: Path, config: Config=CONFIG) -> bool:
     """指定されたパスが無視対象かどうかを判定する"""
     # ディレクトリ名で無視
-    if any(part in IGNORE_DIRS for part in path.parts):
+
+    if any(part in getattr(config, "ignore_dirs") for part in path.parts):
         return True
     # ファイル名で無視
-    if path.name in IGNORE_FILES:
+    if path.name in getattr(config, "ignore_files"):
         return True
     # 拡張子で無視
-    if path.suffix.lower() in IGNORE_EXTENSIONS:
+    if path.suffix.lower() in config.ignore_extensions.all_extensions():
         return True
     return False
+
 
 def generate_tree(start_path: Path, prefix: str = '', is_last: bool = True) -> str:
     """ディレクトリ構造をtree形式で生成する再帰関数"""
@@ -69,6 +44,7 @@ def generate_tree(start_path: Path, prefix: str = '', is_last: bool = True) -> s
             structure += generate_tree(item, new_prefix, is_last_item)
 
     return structure
+
 
 def get_file_contents(root_path: Path) -> str:
     """指定されたディレクトリ以下の全ファイルのパスと内容を行番号付きで取得する"""
@@ -163,12 +139,15 @@ def generate_directory_listing(directory_path: str, output_file: str) -> None:
     except Exception as e:
         print(f"予期せぬエラーが発生しました: {e}")
 
+
+def main() -> None:
+    directory_path = "../"
+    start_path = Path(directory_path).resolve() # 絶対パスに変換
+    start_path = Path(directory_path).resolve().resolve() # 絶対パスに変換
+
+    generate_directory_listing(directory_path, "./text.txt")
+
+
 # --- コマンドライン引数の処理とメイン実行部分 ---
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="指定されたディレクトリの構造とファイル内容をリスト化してテキストファイルに出力します。")
-    parser.add_argument("directory", help="リスト化するディレクトリのパス")
-    parser.add_argument("output", help="出力するテキストファイル名")
-
-    args = parser.parse_args()
-
-    generate_directory_listing(args.directory, args.output)
+    main()

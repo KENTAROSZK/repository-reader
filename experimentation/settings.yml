@@ -1,0 +1,63 @@
+ignore_dirs:
+  - ".git"
+  - "__pycache__"
+  - ".venv"
+  - "node_modules"
+  - ".vscode"
+  - ".idea"
+  - "build"
+  - "dist"
+  - "*.egg_info"
+  - ".mypy_cache"
+ignore_files:
+  - ".DS_Store"
+  - ".env"
+  - "thumbs.db"
+ignore_extensions:
+  images:
+    - '.png'
+    - '.jpg'
+    - '.jpeg'
+    - '.gif'
+    - '.bmp'
+    - '.tiff'
+    - '.webp'
+    - '.svg'
+    - '.ico'
+  videos:
+    - '.mp4'
+    - '.mov'
+    - '.avi'
+    - '.wmv'
+    - '.mp3'
+    - '.wav'
+    - '.ogg'
+  compressed:
+    - '.zip'
+    - '.gz'
+    - '.tar'
+    - '.rar'
+    - '.7z'
+  binaries:
+    - '.pyc'
+    - '.pyo'
+    - '.exe'
+    - '.dll'
+    - '.so'
+    - '.o'
+    - '.a'
+    - '.lib'
+  documents:
+    - '.pdf'
+    - '.doc'
+    - '.docx'
+    - '.xls'
+    - '.xlsx'
+    - '.ppt'
+    - '.pptx'
+  others:
+    - '.lock'
+    - '.log'
+    - '.sqlite'
+    - '.db'
+
