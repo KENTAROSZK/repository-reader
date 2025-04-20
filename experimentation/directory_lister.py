@@ -6,7 +6,6 @@ import os
 import sys
 
 
-
 class DirectoryLister:
     def __init__(
             self,
@@ -25,10 +24,7 @@ class DirectoryLister:
         self.ignore_files = getattr(self.config, "ignore_files")
         self.ignore_extensions = getattr(self.config.ignore_extensions, "all_extensions")()
         self.ignore_files.append(str(output_file)) # 過去に出力したテキストを無視する必要がある
-        print(self.ignore_files)
 
-
-        # print(str(output_file))
 
     def _should_ignore(self, path: Path) -> bool:
         """指定されたパスが無視対象かどうかを判定する"""
@@ -37,7 +33,8 @@ class DirectoryLister:
         if path.suffix.lower() in self.ignore_extensions: return True # 拡張子で無視
             
         return False
-    
+
+
     def _get_sorted_items(self, directory: Path) -> List[Path]:
         """指定されたディレクトリ内のアイテムを無視対象を除外してソートする. 内部メソッド"""
         # TODO: パーミッションエラーやディレクトリを見つけられなかった時のエラーハンドリングを追加する
@@ -50,6 +47,7 @@ class DirectoryLister:
         )
         return items
     
+
     def _generate_tree_recursive(
             self,
             current_path: Path,
@@ -59,7 +57,7 @@ class DirectoryLister:
         """ディレクトリ構造をtree形式で再帰的に生成する（内部メソッド）"""
         structure = ""
         connector = '└── ' if is_last else '├── '
-        
+
         try:
             structure += f"{prefix}{connector}{current_path.name}\n"
             
@@ -82,9 +80,11 @@ class DirectoryLister:
 
         return structure
 
+
     def generate_tree_structure(self)-> str:
         """ルートディレクトリから始まる全体のディレクt理構造の文字列を生成する"""
-        structure = f"{self.root_path.name}"
+        structure = f"{self.root_path.name}\n"
+        print(structure)
 
         # ルートディレクトリのアイテムを取得
         items = self._get_sorted_items(self.root_path)
@@ -93,10 +93,11 @@ class DirectoryLister:
         num_items = len(items)
         for i, item in enumerate(items):
             is_last_item = (i == num_items - 1)
-            structure += self._generate_tree_recursive(item, is_last_item)
+            structure += self._generate_tree_recursive(item, "", is_last_item) # prefixは空文字列で初期化
         
         return structure
     
+
     def _format_file_content(self, file_path: Path) -> str:
         """単一のファイルのパスと内容を読み込み、整形して文字列で返す。 内部メソッド"""
 
@@ -131,6 +132,7 @@ class DirectoryLister:
         content_str += separator # 最後に区切り線を追加
         return content_str
 
+
     def generate_file_contents(self)->str:
         """全ファイルのパスと内容を行番号付きで取得する"""
         contents=""
@@ -145,6 +147,7 @@ class DirectoryLister:
 
         return contents
     
+
     def write_to_file(self, tree_structure: str, file_contents: str) -> None:
         """
         生成したディレクトリ構造とファイル内容を指定されたファイルに書き込む。
@@ -204,10 +207,6 @@ class DirectoryLister:
             raise # 捕捉したエラーを再度送出する
 
 
-        
-
-
-
 def test_should_ignore(lister: DirectoryLister) -> None:
     # テスト用のPathオブジェクトを作成 (Windows/Mac/Linuxで互換性のある書き方)
     test_path_git = Path(".git") / "config" # 相対パスで作成
@@ -263,26 +262,27 @@ def test_get_sorted_items() -> None:
     # dir_a, dir_c, File_B.py, file_z.txt の順になるはず
 
 
-if __name__ == "__main__":
+def main() -> None:
+    # インスタンス化
     lister = DirectoryLister(
         directory_path=Path('./'),
         output_file=Path('text.txt'),
         config=get_config(Path('./settings.yml'))
     )
 
-    
-    a = lister._get_sorted_items(lister.root_path)
-    
-    lister._generate_tree_recursive(lister.root_path)
-    a = lister.generate_file_contents()
-    print(a)
+    structure = lister.generate_tree_structure()
+    print("-"*30)
+    print(structure)
 
+    # ディレクトリリスト化を実行
     lister.run()
-
 
     # for item in a:
     #     print(item)
 
-
     # test_should_ignore(lister)
     # test_get_sorted_items()
+
+
+if __name__ == "__main__":
+    main()
