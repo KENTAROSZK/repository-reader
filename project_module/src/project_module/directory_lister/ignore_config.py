@@ -35,7 +35,7 @@ def get_config(settings_yaml_path: Path)->IgnoreConfig:
 
 
 def main() -> None:
-    settings_yaml_path = Path('./settings.yml')
+    settings_yaml_path = Path('./ignore_settings.yml')
     config = get_config(settings_yaml_path)
 
     print()

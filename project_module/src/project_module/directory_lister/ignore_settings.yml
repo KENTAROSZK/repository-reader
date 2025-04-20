@@ -13,6 +13,7 @@ ignore_files:
   - ".DS_Store"
   - ".env"
   - "thumbs.db"
+  - "settings.yml"
 ignore_extensions:
   images:
     - '.png'

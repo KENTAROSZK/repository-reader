@@ -270,7 +270,7 @@ def main() -> None:
     lister = DirectoryLister(
         directory_path=Path(ROOT_DIR),
         output_file=Path('./text.txt'),
-        config=get_config(Path('./settings.yml'))
+        config=get_config(Path('./ignore_settings.yml'))
     )
 
     # ディレクトリリスト化を実行

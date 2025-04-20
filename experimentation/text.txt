@@ -5,6 +5,7 @@ repository-reader
 │   │   └── docker-compose.yaml
 │   └── Dockerfile
 ├── experimentation
+│   ├── llm-outputs.md
 │   └── rag.py
 ├── project_module
 │   └── src
@@ -18,7 +19,7 @@ repository-reader
 │           │   ├── __init__.py
 │           │   ├── directory_lister.py
 │           │   ├── ignore_config.py
-│           │   └── settings.yml
+│           │   └── ignore_settings.yml
 │           └── __init__.py
 ├── .gitignore
 ├── pyproject.toml
@@ -107,42 +108,285 @@ repository-reader
 --------------------------------------------------------------------------------
 
 
+/experimentation/llm-outputs.md:
+--------------------------------------------------------------------------------
+  1 | ```markdown
+  2 | # Repository Reader
+  3 | 
+  4 | ## プロジェクトの概要
+  5 | 
+  6 | このリポジトリは、指定されたディレクトリの構造とファイルの内容をテキスト形式で出力するツールです。
+  7 | 大規模なプロジェクトの構造を把握したり、ドキュメント生成の補助として利用することを想定しています。
+  8 | LangchainとGoogle Gemini APIを使用し、リポジトリの情報を基に、READMEなどのドキュメントを自動生成する機能も備えています。
+  9 | 
+ 10 | ## 開発環境の構築手順
+ 11 | 
+ 12 | 以下の手順で開発環境を構築します。
+ 13 | 
+ 14 | 1.  **必要なツールのインストール:**
+ 15 | 
+ 16 |     *   [Docker](https://www.docker.com/)
+ 17 |     *   [Docker Compose](https://docs.docker.com/compose/)
+ 18 |     *   [Taskfile](https://taskfile.dev/)
+ 19 | 
+ 20 | 2.  **リポジトリのクローン:**
+ 21 | 
+ 22 |     ```bash
+ 23 |     git clone <リポジトリのURL>
+ 24 |     cd repository-reader
+ 25 |     ```
+ 26 | 
+ 27 | 3.  **.envファイルの作成:**
+ 28 | 
+ 29 |     リポジトリのルートディレクトリに`.env`ファイルを作成し、必要な環境変数を設定します。
+ 30 |     セキュリティ上の理由から、このファイルはリポジトリには含まれていません。
+ 31 |     必要な環境変数は以下の通りです。
+ 32 | 
+ 33 |     *   `POETRY_VERSION`: Poetryのバージョン (例: `1.7.1`)
+ 34 |     *   `POETRY_HOME`: Poetryのインストール先 (例: `/opt/poetry`)
+ 35 |     *   `USER_UID`: ユーザーのUID (例: `1000`)
+ 36 |     *   `USERNAME`: ユーザー名 (例: `dev`)
+ 37 |     *   `PROJECT_NAME`: プロジェクト名 (例: `repository-reader`)
+ 38 |     *   `CONTAINER_NAME`: コンテナ名 (例: `repository-reader-dev`)
+ 39 | 
+ 40 |     ```bash
+ 41 |     touch .env
+ 42 |     ```
+ 43 | 
+ 44 | 4.  **UIDとUSERNAMEを.envに書き込み:**
+ 45 |     ```bash
+ 46 |     task write_uid_onto_env
+ 47 |     ```
+ 48 | 
+ 49 | 5.  **Dockerコンテナの起動:**
+ 50 | 
+ 51 |     Taskfileを使用することで、Dockerイメージのビルドからコンテナの起動までを簡単に行うことができます。
+ 52 | 
+ 53 |     ```bash
+ 54 |     task shell
+ 55 |     ```
+ 56 | 
+ 57 |     このコマンドは、以下の処理を順番に実行します。
+ 58 | 
+ 59 |     1.  `write_uid_onto_env`: ホストマシンのUIDとUSERNAMEを`.env`ファイルに書き込みます。
+ 60 |     2.  `build`: `docker-compose.yaml`ファイルを使用してDockerイメージをビルドします。
+ 61 |     3.  `up`: Dockerコンテナを起動します。
+ 62 |     4.  `docker exec`: 起動したコンテナにログインします。
+ 63 | 
+ 64 | ## フォルダ構成
+ 65 | 
+ 66 | ```
+ 67 | repository-reader/
+ 68 | ├── context/                      # Dockerコンテナの定義ファイル
+ 69 | │   ├── cpu/
+ 70 | │   │   └── docker-compose.yaml  # Docker Composeファイル（CPU環境用）
+ 71 | │   └── Dockerfile              # DockerイメージのDockerfile
+ 72 | ├── experimentation/            # 実験的なコードやスクリプト
+ 73 | │   ├── rag.py                  # RAG(Retrieval Augmented Generation)の実験用スクリプト
+ 74 | │   └── text.txt                # RAGの出力先
+ 75 | ├── project_module/             # プロジェクトのメインモジュール
+ 76 | │   └── src/
+ 77 | │       └── project_module/
+ 78 | │           ├── directory_lister/    # ディレクトリ構造をリスト化するモジュール
+ 79 | │           │   ├── temp_lister_test/  # directory_listerのテスト用ファイル
+ 80 | │           │   │   ├── dir_a/
+ 81 | │           │   │   ├── dir_c/
+ 82 | │           │   │   ├── File_B.py
+ 83 | │           │   │   └── file_z.txt
+ 84 | │           │   ├── __init__.py
+ 85 | │           │   ├── directory_lister.py # ディレクトリ構造リスト化のメイン処理
+ 86 | │           │   ├── ignore_config.py  # 無視するファイルやディレクトリの設定
+ 87 | │           │   └── ignore_settings.yml # 無視設定ファイル
+ 88 | │           └── __init__.py
+ 89 | ├── .gitignore                  # Gitで管理しないファイルの設定
+ 90 | ├── pyproject.toml              # Poetryの設定ファイル
+ 91 | ├── README.md                   # プロジェクトのREADME
+ 92 | └── Taskfile.yaml               # Taskfileの設定ファイル
+ 93 | 
+ 94 | ```
+ 95 | 
+ 96 | *   **context:** Dockerコンテナの構築に必要なファイルが含まれています。`Dockerfile`はPythonの開発環境を構築し、`docker-compose.yaml`はコンテナの起動設定を定義します。
+ 97 | *   **experimentation:** RAGの実験に使用するスクリプトやテキストファイルが含まれています。
+ 98 | *   **project\_module:** プロジェクトのメインとなるモジュールが含まれています。
+ 99 |     *   **directory\_lister:** ディレクトリ構造をリスト化する機能を提供するモジュールです。
+100 |         *   `directory_lister.py`: ディレクトリ構造を走査し、ファイルとディレクトリの情報を収集する主要なスクリプトです。
+101 |         *   `ignore\_config.py`: 無視するファイルやディレクトリのパターンを定義するための設定を管理します。
+102 |         *   `ignore\_settings.yml`: 無視するファイルやディレクトリの具体的な設定を記述します。
+103 | *   **.gitignore:** Gitで管理しないファイルやディレクトリを指定します。
+104 | *   **pyproject.toml:** Poetryのプロジェクト設定ファイルです。依存関係やプロジェクトのメタ情報が記述されています。
+105 | *   **README.md:** プロジェクトの概要や使い方を説明するファイルです。
+106 | *   **Taskfile.yaml:** Taskfileの設定ファイルです。Dockerコンテナのビルドや起動などのタスクを定義します。
+107 | 
+108 | ## どこでどんな処理がなされているか
+109 | 
+110 | *   **`project_module/src/project_module/directory_lister/directory_lister.py`:**
+111 |     *   `DirectoryLister`クラスが定義されており、以下の処理を行います。
+112 |         *   指定されたディレクトリを走査し、ファイルとディレクトリの情報を収集します。
+113 |         *   `ignore_settings.yml`に基づいて、無視するファイルやディレクトリをフィルタリングします。
+114 |         *   ディレクトリ構造をtree形式で出力します。
+115 |         *   ファイルの内容を行番号付きで出力します。
+116 | *   **`experimentation/rag.py`:**
+117 |     *   `DirectoryLister`を使用してリポジトリの構造とコードを取得します。
+118 |     *   取得した情報をLangchainとGoogle Gemini APIに渡し、READMEを自動生成します。
+119 | *   **`context/Dockerfile`:**
+120 |     *   Python 3.11をベースにしたDockerイメージを構築します。
+121 |     *   PoetryとNode.jsをインストールします。
+122 |     *   開発用のユーザーを作成し、必要な環境変数を設定します。
+123 | 
+124 | ## 使い方
+125 | 
+126 | 1.  **開発環境の構築:** 上記の「開発環境の構築手順」に従って環境を構築します。
+127 | 2.  **環境変数の設定:** `.env`ファイルに必要な環境変数を設定します。特に、Google Gemini APIを使用する場合は、APIキーを設定する必要があります。
+128 | 3.  **スクリプトの実行:**
+129 | 
+130 |     *   リポジトリ全体の構造とコードをテキストファイルに出力するには、`project_module/src/project_module/directory_lister/directory_lister.py`を実行します。
+131 | 
+132 |         ```bash
+133 |         # コンテナに入っている状態で実行
+134 |         python project_module/src/project_module/directory_lister/directory_lister.py
+135 |         ```
+136 | 
+137 |         出力ファイルは`text.txt`として保存されます。
+138 | 
+139 |     *   RAGを使用してREADMEを自動生成するには、`experimentation/rag.py`を実行します。
+140 | 
+141 |         ```bash
+142 |         # コンテナに入っている状態で実行
+143 |         python experimentation/rag.py
+144 |         ```
+145 | 
+146 |         生成されたREADMEの内容は、コンソールに出力されるとともに、`llm-outputs.txt`ファイルに保存されます。
+147 | 
+148 | ## 処理フロー
+149 | 
+150 | ### DirectoryLister
+151 | 
+152 | ```mermaid
+153 | graph LR
+154 |     A[開始] --> B{設定ファイルの読み込み (ignore_settings.yml)};
+155 |     B --> C{DirectoryListerのインスタンス化};
+156 |     C --> D{ディレクトリ構造の生成};
+157 |     D --> E{ファイル内容の生成};
+158 |     E --> F{ファイルへ書き込み (text.txt)};
+159 |     F --> G[終了];
+160 |     style A fill:#f9f,stroke:#333,stroke-width:2px
+161 |     style G fill:#f9f,stroke:#333,stroke-width:2px
+162 | ```
+163 | 
+164 | ### RAG
+165 | 
+166 | ```mermaid
+167 | graph LR
+168 |     A[開始] --> B{設定ファイルの読み込み (ignore_settings.yml)};
+169 |     B --> C{DirectoryListerのインスタンス化};
+170 |     C --> D{ディレクトリ構造の生成};
+171 |     D --> E{ファイル内容の生成};
+172 |     E --> F{ファイルへ書き込み (text.txt)};
+173 |     F --> G{テキストファイルの読み込み};
+174 |     G --> H{Gemini APIへのプロンプト送信};
+175 |     H --> I{README生成};
+176 |     I --> J{READMEのファイルへ書き出し (llm-outputs.txt)};
+177 |     J --> K[終了];
+178 |     style A fill:#f9f,stroke:#333,stroke-width:2px
+179 |     style K fill:#f9f,stroke:#333,stroke-width:2px
+180 | ```
+181 | 
+182 | **フローの説明:**
+183 | 
+184 | 1.  **設定ファイルの読み込み:** `ignore_settings.yml`を読み込み、無視するファイルやディレクトリの設定を取得します。
+185 | 2.  **DirectoryListerのインスタンス化:** 読み込んだ設定を基に、`DirectoryLister`クラスのインスタンスを作成します。
+186 | 3.  **ディレクトリ構造の生成:** `DirectoryLister`を使用して、指定されたディレクトリの構造をtree形式で生成します。
+187 | 4.  **ファイル内容の生成:** `DirectoryLister`を使用して、指定されたディレクトリ内の各ファイルの内容を行番号付きで生成します。
+188 | 5.  **ファイルへ書き込み:** 生成されたディレクトリ構造とファイルの内容を`text.txt`ファイルに書き込みます。
+189 | 6.  **テキストファイルの読み込み:**  `text.txt`ファイルの内容を読み込みます。
+190 | 7.  **Gemini APIへのプロンプト送信:** 読み込んだファイルの内容と、README生成を指示するプロンプトをGemini APIへ送信します。
+191 | 8.  **README生成:** Gemini APIからの応答に基づき、READMEの内容を生成します。
+192 | 9.  **READMEのファイルへ書き出し:** 生成されたREADMEの内容を`llm-outputs.txt`ファイルに書き出します。
+193 | 10. **終了:** 処理を終了します。
+194 | ```
+--------------------------------------------------------------------------------
+
+
 /experimentation/rag.py:
 --------------------------------------------------------------------------------
  1 | import sys
  2 | import os
- 3 | 
+ 3 | from dotenv import load_dotenv
  4 | from pathlib import Path
- 5 | 
- 6 | # パスを追加（絶対パス or 相対パス）
- 7 | sys.path.append(os.path.abspath("../project_module/src/project_module"))
- 8 | 
- 9 | 
-10 | # 自作モジュールをインポート
-11 | from directory_lister.directory_lister import DirectoryLister
-12 | from directory_lister.ignore_config import get_config, IgnoreConfig
-13 | 
-14 | 
-15 | 
-16 | def main() -> None:
-17 |     # 検索を開始するディレクトリのパスを指定
-18 |     ROOT_DIR = Path(__file__).resolve().parents[1] # 2つ上のディレクトリを取得する
-19 |     # 設定ファイルのパスを指定
-20 |     SETTING_YML_DIR = Path(__file__).resolve().parent.parent/ "project_module/src/project_module/directory_lister" / 'settings.yml'
-21 | 
-22 |     # インスタンス化
-23 |     lister = DirectoryLister(
-24 |         directory_path=Path(ROOT_DIR),
-25 |         output_file=Path('./text.txt'),
-26 |         config=get_config(Path(SETTING_YML_DIR))
-27 |     )
-28 | 
-29 |     # ディレクトリリスト化を実行
-30 |     lister.run()
-31 | 
-32 | 
-33 | if __name__ == "__main__":
-34 |     main()
+ 5 | from langchain_google_genai import ChatGoogleGenerativeAI
+ 6 | 
+ 7 | # 自作モジュールをインポート
+ 8 | sys.path.append(os.path.abspath("../project_module/src/project_module"))
+ 9 | from directory_lister.directory_lister import DirectoryLister
+10 | from directory_lister.ignore_config import get_config, IgnoreConfig
+11 | 
+12 | 
+13 | # 検索を開始するディレクトリのパスを指定
+14 | ROOT_DIR = Path(__file__).resolve().parents[1] # 2つ上のディレクトリを取得する
+15 | # テキストファイルの出力先のパスを指定
+16 | DIR_AND_CODES_FILE = Path(__file__).resolve().parent / 'text.txt'
+17 | # 設定ファイルのパスを指定
+18 | SETTING_YML_DIR = Path(__file__).resolve().parent.parent/ "project_module/src/project_module/directory_lister" / 'ignore_settings.yml'
+19 | 
+20 | # 環境変数を取得
+21 | DOT_ENV_PATH = Path(__file__).resolve().parent.parent / '.env'
+22 | load_dotenv(DOT_ENV_PATH)
+23 | 
+24 | 
+25 | def main() -> None:
+26 | 
+27 |     # インスタンス化
+28 |     lister = DirectoryLister(
+29 |         directory_path=Path(ROOT_DIR),
+30 |         output_file=Path(DIR_AND_CODES_FILE),
+31 |         config=get_config(Path(SETTING_YML_DIR))
+32 |     )
+33 | 
+34 |     # ディレクトリリスト化を実行
+35 |     lister.run()
+36 | 
+37 |     with open(DIR_AND_CODES_FILE, 'r', encoding='utf-8') as f:
+38 |         dir_and_codes: str = f.read()
+39 | 
+40 |     question: str = """
+41 | このリポジトリを公開するためのREADME.mdを作成してください。
+42 | READMEの内容は、以下の内容を含めてください。
+43 | - プロジェクトの概要
+44 | - 開発環境の構築手順
+45 | - フォルダの構成とそれぞれの簡単な説明
+46 | - どこでどんな処理がなされているか
+47 | - 使い方
+48 | - 処理フローを示すmermaid記法の図
+49 | """
+50 |     prompt = f"""
+51 | 以下の内容は、今開発しているリポジトリのコードのディレクトリとそのソースコードです。
+52 | 環境変数などの設定ファイルは、セキュリティ上の理由でテキスト化していません。
+53 | 質問に答えてください。
+54 | 
+55 | # 質問
+56 | {question}
+57 | 
+58 | # ディレクトリとソースコード
+59 | {dir_and_codes}
+60 | """
+61 | 
+62 |     print("="*30)
+63 |     llm = ChatGoogleGenerativeAI(
+64 |         model="gemini-2.0-flash"
+65 |     )
+66 |     results = llm.invoke(prompt)
+67 |     content = results.content
+68 |     print(content)
+69 | 
+70 |     with open(Path("./llm-outputs.md"), 'w', encoding='utf-8') as f:
+71 |         f.write(content)
+72 | 
+73 | 
+74 | 
+75 | 
+76 | 
+77 | if __name__ == "__main__":
+78 |     main()
 --------------------------------------------------------------------------------
 
 
@@ -432,7 +676,7 @@ repository-reader
 270 |     lister = DirectoryLister(
 271 |         directory_path=Path(ROOT_DIR),
 272 |         output_file=Path('./text.txt'),
-273 |         config=get_config(Path('./settings.yml'))
+273 |         config=get_config(Path('./ignore_settings.yml'))
 274 |     )
 275 | 
 276 |     # ディレクトリリスト化を実行
@@ -490,7 +734,7 @@ repository-reader
 35 | 
 36 | 
 37 | def main() -> None:
-38 |     settings_yaml_path = Path('./settings.yml')
+38 |     settings_yaml_path = Path('./ignore_settings.yml')
 39 |     config = get_config(settings_yaml_path)
 40 | 
 41 |     print()
@@ -509,7 +753,7 @@ repository-reader
 --------------------------------------------------------------------------------
 
 
-/project_module/src/project_module/directory_lister/settings.yml:
+/project_module/src/project_module/directory_lister/ignore_settings.yml:
 --------------------------------------------------------------------------------
  1 | ignore_dirs:
  2 |   - ".git"
@@ -526,54 +770,55 @@ repository-reader
 13 |   - ".DS_Store"
 14 |   - ".env"
 15 |   - "thumbs.db"
-16 | ignore_extensions:
-17 |   images:
-18 |     - '.png'
-19 |     - '.jpg'
-20 |     - '.jpeg'
-21 |     - '.gif'
-22 |     - '.bmp'
-23 |     - '.tiff'
-24 |     - '.webp'
-25 |     - '.svg'
-26 |     - '.ico'
-27 |   videos:
-28 |     - '.mp4'
-29 |     - '.mov'
-30 |     - '.avi'
-31 |     - '.wmv'
-32 |     - '.mp3'
-33 |     - '.wav'
-34 |     - '.ogg'
-35 |   compressed:
-36 |     - '.zip'
-37 |     - '.gz'
-38 |     - '.tar'
-39 |     - '.rar'
-40 |     - '.7z'
-41 |   binaries:
-42 |     - '.pyc'
-43 |     - '.pyo'
-44 |     - '.exe'
-45 |     - '.dll'
-46 |     - '.so'
-47 |     - '.o'
-48 |     - '.a'
-49 |     - '.lib'
-50 |   documents:
-51 |     - '.pdf'
-52 |     - '.doc'
-53 |     - '.docx'
-54 |     - '.xls'
-55 |     - '.xlsx'
-56 |     - '.ppt'
-57 |     - '.pptx'
-58 |   others:
-59 |     - '.lock'
-60 |     - '.log'
-61 |     - '.sqlite'
-62 |     - '.db'
-63 | 
+16 |   - "settings.yml"
+17 | ignore_extensions:
+18 |   images:
+19 |     - '.png'
+20 |     - '.jpg'
+21 |     - '.jpeg'
+22 |     - '.gif'
+23 |     - '.bmp'
+24 |     - '.tiff'
+25 |     - '.webp'
+26 |     - '.svg'
+27 |     - '.ico'
+28 |   videos:
+29 |     - '.mp4'
+30 |     - '.mov'
+31 |     - '.avi'
+32 |     - '.wmv'
+33 |     - '.mp3'
+34 |     - '.wav'
+35 |     - '.ogg'
+36 |   compressed:
+37 |     - '.zip'
+38 |     - '.gz'
+39 |     - '.tar'
+40 |     - '.rar'
+41 |     - '.7z'
+42 |   binaries:
+43 |     - '.pyc'
+44 |     - '.pyo'
+45 |     - '.exe'
+46 |     - '.dll'
+47 |     - '.so'
+48 |     - '.o'
+49 |     - '.a'
+50 |     - '.lib'
+51 |   documents:
+52 |     - '.pdf'
+53 |     - '.doc'
+54 |     - '.docx'
+55 |     - '.xls'
+56 |     - '.xlsx'
+57 |     - '.ppt'
+58 |     - '.pptx'
+59 |   others:
+60 |     - '.lock'
+61 |     - '.log'
+62 |     - '.sqlite'
+63 |     - '.db'
+64 | 
 --------------------------------------------------------------------------------
 
 
@@ -599,19 +844,21 @@ repository-reader
  6 |     {name = "Your Name",email = "you@example.com"}
  7 | ]
  8 | readme = "README.md"
- 9 | requires-python = ">=3.11"
+ 9 | requires-python = ">=3.11,<4.0"
 10 | dependencies = [
 11 |     "pyyaml (>=6.0.2,<7.0.0)",
-12 |     "pydantic (>=2.11.3,<3.0.0)"
-13 | ]
-14 | 
-15 | [tool.poetry]
-16 | package-mode = false
-17 | 
-18 | 
-19 | [build-system]
-20 | requires = ["poetry-core>=2.0.0,<3.0.0"]
-21 | build-backend = "poetry.core.masonry.api"
+12 |     "pydantic (>=2.11.3,<3.0.0)",
+13 |     "langchain-google-genai (>=2.1.3,<3.0.0)",
+14 |     "python-dotenv (>=1.1.0,<2.0.0)"
+15 | ]
+16 | 
+17 | [tool.poetry]
+18 | package-mode = false
+19 | 
+20 | 
+21 | [build-system]
+22 | requires = ["poetry-core>=2.0.0,<3.0.0"]
+23 | build-backend = "poetry.core.masonry.api"
 --------------------------------------------------------------------------------
 
 
