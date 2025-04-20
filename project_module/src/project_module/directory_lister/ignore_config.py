@@ -21,17 +21,17 @@ class IgnoreExtensionsConfig(BaseModel):
 
 
 
-class Config(BaseModel):
+class IgnoreConfig(BaseModel):
     ignore_dirs: List[str] | None
     ignore_files: List[str] | None
     ignore_extensions: IgnoreExtensionsConfig | None
 
 
-def get_config(settings_yaml_path: Path)->Config:
+def get_config(settings_yaml_path: Path)->IgnoreConfig:
     with open(settings_yaml_path, 'rb') as f:
         yml = yaml.safe_load(f)
     
-    return Config.model_validate(yml)
+    return IgnoreConfig.model_validate(yml)
 
 
 def main() -> None:

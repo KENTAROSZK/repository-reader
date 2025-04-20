@@ -9,7 +9,7 @@ sys.path.append(os.path.abspath("../project_module/src/project_module"))
 
 # 自作モジュールをインポート
 from directory_lister.directory_lister import DirectoryLister
-from directory_lister.config import get_config, Config
+from directory_lister.ignore_config import get_config, IgnoreConfig
 
 
 

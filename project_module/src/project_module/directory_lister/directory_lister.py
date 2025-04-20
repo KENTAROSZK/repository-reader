@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List
-from .config import get_config, Config
+from .ignore_config import get_config, IgnoreConfig
 
 import os
 import sys
@@ -11,7 +11,7 @@ class DirectoryLister:
             self,
             directory_path: Path,
             output_file: Path,
-            config: Config
+            config: IgnoreConfig
     ):
         self.root_path = directory_path.resolve() # 絶対パスに変換
         self.output_file = output_file

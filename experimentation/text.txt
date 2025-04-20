@@ -16,8 +16,8 @@ repository-reader
 │           │   │   ├── File_B.py
 │           │   │   └── file_z.txt
 │           │   ├── __init__.py
-│           │   ├── config.py
 │           │   ├── directory_lister.py
+│           │   ├── ignore_config.py
 │           │   └── settings.yml
 │           └── __init__.py
 ├── .gitignore
@@ -120,34 +120,29 @@ repository-reader
  9 | 
 10 | # 自作モジュールをインポート
 11 | from directory_lister.directory_lister import DirectoryLister
-12 | from directory_lister.config import get_config, Config
+12 | from directory_lister.ignore_config import get_config, IgnoreConfig
 13 | 
 14 | 
 15 | 
 16 | def main() -> None:
-17 | 
+17 |     # 検索を開始するディレクトリのパスを指定
 18 |     ROOT_DIR = Path(__file__).resolve().parents[1] # 2つ上のディレクトリを取得する
-19 |     print(ROOT_DIR)
-20 | 
-21 |     SETTING_YML_DIR = Path(__file__).resolve().parent.parent/ "project_module/src/project_module/directory_lister" / 'settings.yml'
-22 | 
-23 | 
-24 | 
-25 | 
-26 | 
-27 |     # インスタンス化
-28 |     lister = DirectoryLister(
-29 |         directory_path=Path(ROOT_DIR),
-30 |         output_file=Path('./text.txt'),
-31 |         config=get_config(Path(SETTING_YML_DIR))
-32 |     )
-33 | 
-34 |     # ディレクトリリスト化を実行
-35 |     lister.run()
-36 | 
-37 | 
-38 | if __name__ == "__main__":
-39 |     main()
+19 |     # 設定ファイルのパスを指定
+20 |     SETTING_YML_DIR = Path(__file__).resolve().parent.parent/ "project_module/src/project_module/directory_lister" / 'settings.yml'
+21 | 
+22 |     # インスタンス化
+23 |     lister = DirectoryLister(
+24 |         directory_path=Path(ROOT_DIR),
+25 |         output_file=Path('./text.txt'),
+26 |         config=get_config(Path(SETTING_YML_DIR))
+27 |     )
+28 | 
+29 |     # ディレクトリリスト化を実行
+30 |     lister.run()
+31 | 
+32 | 
+33 | if __name__ == "__main__":
+34 |     main()
 --------------------------------------------------------------------------------
 
 
@@ -163,69 +158,11 @@ repository-reader
 --------------------------------------------------------------------------------
 
 
-/project_module/src/project_module/directory_lister/config.py:
---------------------------------------------------------------------------------
- 1 | import yaml
- 2 | from pydantic import BaseModel
- 3 | from typing import List
- 4 | from pathlib import Path
- 5 | 
- 6 | class IgnoreExtensionsConfig(BaseModel):
- 7 |     images: List[str] | None
- 8 |     videos: List[str] | None
- 9 |     compressed: List[str] | None
-10 |     binaries: List[str] | None
-11 |     documents: List[str] | None
-12 |     others: List[str] | None
-13 | 
-14 |     def all_extensions(self) -> List[str]:
-15 |         """全ての拡張子を取得する"""
-16 |         all_exts = []
-17 |         for attr in self.__dict__.values():
-18 |             if isinstance(attr, list):
-19 |                 all_exts.extend(attr)
-20 |         return all_exts
-21 | 
-22 | 
-23 | 
-24 | class Config(BaseModel):
-25 |     ignore_dirs: List[str] | None
-26 |     ignore_files: List[str] | None
-27 |     ignore_extensions: IgnoreExtensionsConfig | None
-28 | 
-29 | 
-30 | def get_config(settings_yaml_path: Path)->Config:
-31 |     with open(settings_yaml_path, 'rb') as f:
-32 |         yml = yaml.safe_load(f)
-33 | 
-34 |     return Config.model_validate(yml)
-35 | 
-36 | 
-37 | def main() -> None:
-38 |     settings_yaml_path = Path('./settings.yml')
-39 |     config = get_config(settings_yaml_path)
-40 | 
-41 |     print()
-42 |     print(f"{getattr(config, 'ignore_dirs')=}")
-43 |     print()
-44 |     print(f"{getattr(config, 'ignore_extensions')=}")
-45 |     print()
-46 |     print(f"{getattr(config.ignore_extensions, 'images')=}")
-47 |     print()
-48 |     print(config.ignore_extensions.all_extensions())
-49 |     print()
-50 | 
-51 | 
-52 | if __name__ == "__main__":
-53 |     main()
---------------------------------------------------------------------------------
-
-
 /project_module/src/project_module/directory_lister/directory_lister.py:
 --------------------------------------------------------------------------------
   1 | from pathlib import Path
   2 | from typing import List
-  3 | from .config import get_config, Config
+  3 | from .ignore_config import get_config, IgnoreConfig
   4 | 
   5 | import os
   6 | import sys
@@ -236,7 +173,7 @@ repository-reader
  11 |             self,
  12 |             directory_path: Path,
  13 |             output_file: Path,
- 14 |             config: Config
+ 14 |             config: IgnoreConfig
  15 |     ):
  16 |         self.root_path = directory_path.resolve() # 絶対パスに変換
  17 |         self.output_file = output_file
@@ -511,6 +448,64 @@ repository-reader
 286 | 
 287 | if __name__ == "__main__":
 288 |     main()
+--------------------------------------------------------------------------------
+
+
+/project_module/src/project_module/directory_lister/ignore_config.py:
+--------------------------------------------------------------------------------
+ 1 | import yaml
+ 2 | from pydantic import BaseModel
+ 3 | from typing import List
+ 4 | from pathlib import Path
+ 5 | 
+ 6 | class IgnoreExtensionsConfig(BaseModel):
+ 7 |     images: List[str] | None
+ 8 |     videos: List[str] | None
+ 9 |     compressed: List[str] | None
+10 |     binaries: List[str] | None
+11 |     documents: List[str] | None
+12 |     others: List[str] | None
+13 | 
+14 |     def all_extensions(self) -> List[str]:
+15 |         """全ての拡張子を取得する"""
+16 |         all_exts = []
+17 |         for attr in self.__dict__.values():
+18 |             if isinstance(attr, list):
+19 |                 all_exts.extend(attr)
+20 |         return all_exts
+21 | 
+22 | 
+23 | 
+24 | class IgnoreConfig(BaseModel):
+25 |     ignore_dirs: List[str] | None
+26 |     ignore_files: List[str] | None
+27 |     ignore_extensions: IgnoreExtensionsConfig | None
+28 | 
+29 | 
+30 | def get_config(settings_yaml_path: Path)->IgnoreConfig:
+31 |     with open(settings_yaml_path, 'rb') as f:
+32 |         yml = yaml.safe_load(f)
+33 | 
+34 |     return IgnoreConfig.model_validate(yml)
+35 | 
+36 | 
+37 | def main() -> None:
+38 |     settings_yaml_path = Path('./settings.yml')
+39 |     config = get_config(settings_yaml_path)
+40 | 
+41 |     print()
+42 |     print(f"{getattr(config, 'ignore_dirs')=}")
+43 |     print()
+44 |     print(f"{getattr(config, 'ignore_extensions')=}")
+45 |     print()
+46 |     print(f"{getattr(config.ignore_extensions, 'images')=}")
+47 |     print()
+48 |     print(config.ignore_extensions.all_extensions())
+49 |     print()
+50 | 
+51 | 
+52 | if __name__ == "__main__":
+53 |     main()
 --------------------------------------------------------------------------------
 
 
