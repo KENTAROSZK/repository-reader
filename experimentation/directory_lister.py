@@ -270,12 +270,9 @@ def main() -> None:
         config=get_config(Path('./settings.yml'))
     )
 
-    structure = lister.generate_tree_structure()
-    print("-"*30)
-    print(structure)
-
     # ディレクトリリスト化を実行
     lister.run()
+
 
     # for item in a:
     #     print(item)
