@@ -15,7 +15,6 @@ repository-reader
 │           │   │   ├── dir_c
 │           │   │   ├── File_B.py
 │           │   │   └── file_z.txt
-│           │   ├── __init__.py
 │           │   ├── config.py
 │           │   ├── directory_lister.py
 │           │   └── settings.yml
@@ -109,55 +108,11 @@ repository-reader
 
 /experimentation/rag.py:
 --------------------------------------------------------------------------------
- 1 | import sys
- 2 | import os
- 3 | 
- 4 | from pathlib import Path
- 5 | 
- 6 | # パスを追加（絶対パス or 相対パス）
- 7 | sys.path.append(os.path.abspath("../project_module/src/project_module"))
- 8 | 
- 9 | 
-10 | # 自作モジュールをインポート
-11 | from directory_lister.directory_lister import DirectoryLister
-12 | from directory_lister.config import get_config, Config
-13 | 
-14 | 
-15 | 
-16 | def main() -> None:
-17 | 
-18 |     ROOT_DIR = Path(__file__).resolve().parents[1] # 2つ上のディレクトリを取得する
-19 |     print(ROOT_DIR)
-20 | 
-21 |     SETTING_YML_DIR = Path(__file__).resolve().parent.parent/ "project_module/src/project_module/directory_lister" / 'settings.yml'
-22 | 
-23 | 
-24 | 
-25 | 
-26 | 
-27 |     # インスタンス化
-28 |     lister = DirectoryLister(
-29 |         directory_path=Path(ROOT_DIR),
-30 |         output_file=Path('./text.txt'),
-31 |         config=get_config(Path(SETTING_YML_DIR))
-32 |     )
-33 | 
-34 |     # ディレクトリリスト化を実行
-35 |     lister.run()
-36 | 
-37 | 
-38 | if __name__ == "__main__":
-39 |     main()
+1 | rag.py
 --------------------------------------------------------------------------------
 
 
 /project_module/src/project_module/__init__.py:
---------------------------------------------------------------------------------
- [空ファイル]
---------------------------------------------------------------------------------
-
-
-/project_module/src/project_module/directory_lister/__init__.py:
 --------------------------------------------------------------------------------
  [空ファイル]
 --------------------------------------------------------------------------------
@@ -225,7 +180,7 @@ repository-reader
 --------------------------------------------------------------------------------
   1 | from pathlib import Path
   2 | from typing import List
-  3 | from .config import get_config, Config
+  3 | from config import get_config, Config
   4 | 
   5 | import os
   6 | import sys
@@ -489,28 +444,29 @@ repository-reader
 264 | 
 265 | def main() -> None:
 266 | 
-267 |     ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent # プロジェクトのルートディレクトリを取得
-268 | 
-269 |     # インスタンス化
-270 |     lister = DirectoryLister(
-271 |         directory_path=Path(ROOT_DIR),
-272 |         output_file=Path('./text.txt'),
-273 |         config=get_config(Path('./settings.yml'))
-274 |     )
-275 | 
-276 |     # ディレクトリリスト化を実行
-277 |     lister.run()
-278 | 
+267 |     ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent# プロジェクトのルートディレクトリを取得
+268 |     sys.path.append(str(ROOT_DIR)) # sys.pathに追加してインポート可能にする
+269 | 
+270 |     # インスタンス化
+271 |     lister = DirectoryLister(
+272 |         directory_path=Path(ROOT_DIR),
+273 |         output_file=Path('./text.txt'),
+274 |         config=get_config(Path('./settings.yml'))
+275 |     )
+276 | 
+277 |     # ディレクトリリスト化を実行
+278 |     lister.run()
 279 | 
-280 |     # for item in a:
-281 |     #     print(item)
-282 | 
-283 |     # test_should_ignore(lister)
-284 |     # test_get_sorted_items()
-285 | 
+280 | 
+281 |     # for item in a:
+282 |     #     print(item)
+283 | 
+284 |     # test_should_ignore(lister)
+285 |     # test_get_sorted_items()
 286 | 
-287 | if __name__ == "__main__":
-288 |     main()
+287 | 
+288 | if __name__ == "__main__":
+289 |     main()
 --------------------------------------------------------------------------------
 
 

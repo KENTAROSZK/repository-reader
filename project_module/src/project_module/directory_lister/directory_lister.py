@@ -1,6 +1,6 @@
 from pathlib import Path
 from typing import List
-from config import get_config, Config
+from .config import get_config, Config
 
 import os
 import sys
@@ -263,10 +263,13 @@ def test_get_sorted_items() -> None:
 
 
 def main() -> None:
+
+    ROOT_DIR = Path(__file__).resolve().parent.parent.parent.parent.parent # プロジェクトのルートディレクトリを取得
+
     # インスタンス化
     lister = DirectoryLister(
-        directory_path=Path('./'),
-        output_file=Path('text.txt'),
+        directory_path=Path(ROOT_DIR),
+        output_file=Path('./text.txt'),
         config=get_config(Path('./settings.yml'))
     )
 
